@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Ops Tracker</title>
+<style>
+  :root {
+    --bg: #0b1014;
+    --panel: #11181d;
+    --panel-border: #1f2b32;
+    --text: #d7e2e6;
+    --text-dim: #6f8089;
+    --teal: #1d9e75;
+    --teal-dim: #0f6e56;
+    --amber: #ef9f27;
+    --amber-dim: #854f0b;
+    --blue: #378add;
+    --red: #e24b4a;
+    --mono: 'JetBrains Mono', 'Courier New', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    position: relative;
+  }
+  #particle-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 0;
+    pointer-events: none;
+    display: block;
+  }
+  .topbar, .wrap { position: relative; z-index: 1; }
+  .topbar {
+    border-bottom: 1px solid var(--panel-border);
+    padding: 14px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    background: rgba(11,16,20,0.92);
+    backdrop-filter: blur(6px);
+    z-index: 10;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+  .brand .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 0 3px rgba(29,158,117,0.15);
+  }
+  .clock {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+  }
+  .subtitle {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .reset-btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .reset-btn:hover { border-color: var(--teal-dim); color: var(--teal); }
+
+  .rings-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .ring-cell {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 14px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .ring-cell svg { transform: rotate(-90deg); }
+  .ring-cell svg circle:nth-child(2) { filter: drop-shadow(0 0 4px currentColor); }
+  .ring-pct {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .ring-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+  }
+
+  .section {
+    margin-bottom: 28px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .section-head i { font-size: 17px; }
+  .section-head .name {
+    font-weight: 500;
+    font-size: 14px;
+  }
+  .section-head .count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+  .item-list {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 10px;
+    border-radius: 4px;
+    transition: background 0.12s;
+  }
+  .item-row:hover { background: rgba(255,255,255,0.025); }
+  .item-row input[type="checkbox"] {
+    width: 15px; height: 15px;
+    accent-color: var(--teal);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .item-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+  .item-text.done {
+    color: var(--text-dim);
+    text-decoration: line-through;
+  }
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 14px;
+    opacity: 0.6;
+    flex-shrink: 0;
+  }
+  .del-btn:hover { opacity: 1; color: var(--red); }
+  .empty-msg {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 8px 10px;
+  }
+  .add-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--panel-border);
+  }
+  .add-row input {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-size: 14px;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-family: var(--sans);
+  }
+  .add-row input:focus {
+    outline: none;
+    border-color: var(--teal-dim);
+  }
+  .add-row input::placeholder { color: var(--text-dim); }
+  .add-btn {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 0 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: border-color 0.15s;
+  }
+  .add-btn:hover { border-color: var(--teal-dim); }
+
+  .hist-entry { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 6px; margin-bottom: 10px; overflow: hidden; }
+  .hist-head { padding: 10px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  .hist-head:hover { background: rgba(255,255,255,0.02); }
+  .hist-date { font-family: var(--mono); color: var(--text); }
+  .hist-score { font-family: var(--mono); color: var(--text-dim); font-size: 12px; }
+  .hist-body { padding: 4px 16px 12px; font-size: 13px; display: none; }
+  .hist-body.open { display: block; }
+  .hist-line { margin: 4px 0; color: var(--text-dim); }
+  .hist-line b { color: var(--text); font-family: var(--mono); }
+  .footer-note {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 24px;
+  }
+
+  .add-row input[type="time"] { flex: 0 0 100px; color-scheme: dark; }
+  .item-time { font-family: var(--mono); font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+  @media (max-width: 640px) {
+    .rings-grid { grid-template-columns: repeat(2, 1fr); }
+    .wrap { padding: 24px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="particle-canvas"></canvas>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span>DAILY OPS TRACKER</div>
+  <div class="clock" id="clock"></div>
+</div>
+
+<div class="wrap">
+  <div class="header-row">
+    <div>
+      <h1>Today Mission</h1>
+      <div class="subtitle" id="date-label"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="reset-btn" id="notif-btn">&#128276; Notifications: <span id="notif-status">off</span></button>
+      <button class="reset-btn" id="export-btn">&#8595; Export</button>
+      <button class="reset-btn" id="import-btn">&#8593; Import</button>
+      <input type="file" id="import-file" accept=".json" style="display:none;">
+      <button class="reset-btn" id="reset-day">&#8635; Naya din shuru karo</button>
+    </div>
+  </div>
+
+  <div class="rings-grid" id="rings-grid"></div>
+
+  <div id="sections"></div>
+
+  <div id="history-section"></div>
+
+  <div class="footer-note">Created by Sidharth</div>
+</div>
+
+<script>
+const SECTIONS = [
+  { key: 'tasks', label: 'Aaj ka task', shortLabel: 'Tasks', icon: 'ti-list-check', barColor: 'var(--blue)', placeholder: 'Naya task likho...' },
+  { key: 'learn', label: 'Kya seekhna hai', shortLabel: 'Learning', icon: 'ti-bulb', barColor: 'var(--teal)', placeholder: 'Naya topic likho...' },
+  { key: 'read', label: 'Kya padhna hai', shortLabel: 'Reading', icon: 'ti-book', barColor: 'var(--amber)', placeholder: 'Naya reading item likho...' }
+];
+
+let state = { tasks: [], learn: [], read: [] };
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('ops-tracker-state');
+    if (raw) state = JSON.parse(raw);
+  } catch (e) {}
+}
+
+function saveState() {
+  try { localStorage.setItem('ops-tracker-state', JSON.stringify(state)); } catch (e) {}
+}
+
+function uid() { return Math.random().toString(36).slice(2, 9); }
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('date-label').textContent = now.toLocaleDateString('hi-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function ringSVG(pct, color) {
+  const r = 26, c = 2 * Math.PI * r, off = c - (pct / 100) * c;
+  return '<svg width="64" height="64" viewBox="0 0 64 64">' +
+    '<circle cx="32" cy="32" r="' + r + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"/>' +
+    '<circle cx="32" cy="32" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + off + '" style="color:' + color + ';transition:stroke-dashoffset 0.4s;"/>' +
+    '</svg>';
+}
+
+function renderRings() {
+  const grid = document.getElementById('rings-grid');
+  const colors = { tasks: '#378add', learn: '#1d9e75', read: '#ef9f27' };
+  let totalDone = 0, totalAll = 0;
+  let html = '';
+  SECTIONS.forEach(sec => {
+    const items = state[sec.key];
+    const done = items.filter(i => i.done).length, total = items.length;
+    totalDone += done; totalAll += total;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    html += '<div class="ring-cell">' + ringSVG(pct, colors[sec.key]) +
+      '<div class="ring-pct">' + pct + '%</div><div class="ring-label">' + sec.shortLabel + '</div></div>';
+  });
+  const overallPct = totalAll ? Math.round((totalDone / totalAll) * 100) : 0;
+  html = '<div class="ring-cell">' + ringSVG(overallPct, '#9fe1cb') +
+    '<div class="ring-pct">' + overallPct + '%</div><div class="ring-label">Overall</div></div>' + html;
+  grid.innerHTML = html;
+}
+
+function renderHistory() {
+  const el = document.getElementById('history-section');
+  const hist = state.history || [];
+  if (!hist.length) { el.innerHTML = ''; return; }
+  let html = '<div class="section-head" style="border:none;padding:0 0 10px;"><span class="name">Pichle dino ki summary</span></div>';
+  hist.forEach((day, idx) => {
+    let done = 0, total = 0, body = '';
+    SECTIONS.forEach(sec => {
+      const s = day.sections[sec.key];
+      if (!s) return;
+      done += s.doneCount; total += s.total;
+      body += '<div class="hist-line"><b>' + sec.label + ':</b> ' + s.doneCount + '/' + s.total + '</div>';
+      if (s.done.length) body += '<div class="hist-line">&nbsp;&nbsp;✓ ' + s.done.join(', ') + '</div>';
+      if (s.pending.length) body += '<div class="hist-line">&nbsp;&nbsp;✗ ' + s.pending.join(', ') + '</div>';
+    });
+    html += '<div class="hist-entry"><div class="hist-head"><span class="hist-date" onclick="document.getElementById(\'hb' + idx + '\').classList.toggle(\'open\')" style="cursor:pointer;flex:1;">' + day.date + '</span><span class="hist-score">' + done + '/' + total + ' complete</span>' +
+      '<button class="del-btn" onclick="delHistory(' + idx + ')" aria-label="Delete summary" style="margin-left:8px;">&#10005;</button></div>' +
+      '<div class="hist-body" id="hb' + idx + '">' + body + '</div></div>';
+  });
+  el.innerHTML = html;
+}
+
+function delHistory(idx) {
+  state.history.splice(idx, 1);
+  saveState();
+  render();
+}
+
+function render() {
+  const container = document.getElementById('sections');
+  container.innerHTML = '';
+  renderRings();
+  renderHistory();
+
+  SECTIONS.forEach(sec => {
+    const items = state[sec.key];
+    const done = items.filter(i => i.done).length;
+    const total = items.length;
+
+    const section = document.createElement('div');
+    section.className = 'section';
+
+    const head = document.createElement('div');
+    head.className = 'section-head';
+    head.innerHTML = '<span class="name">' + sec.label + '</span><span class="count">' + done + ' / ' + total + '</span>';
+    section.appendChild(head);
+
+    const list = document.createElement('div');
+    list.className = 'item-list';
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-msg';
+      empty.textContent = 'Koi item nahi hai abhi.';
+      list.appendChild(empty);
+    }
+
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = item.done;
+      cb.onchange = () => { item.done = cb.checked; saveState(); render(); };
+
+      const isEditing = state._editingId === item.id;
+      let text, timeEdit;
+      if (isEditing) {
+        text = document.createElement('input');
+        text.type = 'text';
+        text.value = item.text;
+        text.className = 'item-edit-input';
+        text.style.cssText = 'flex:1;font-size:14px;background:rgba(255,255,255,0.04);border:1px solid var(--teal-dim);border-radius:4px;padding:4px 8px;color:var(--text);font-family:var(--sans);';
+        timeEdit = document.createElement('input');
+        timeEdit.type = 'time';
+        timeEdit.value = item.time || '';
+        timeEdit.style.cssText = 'flex:0 0 100px;background:rgba(255,255,255,0.04);border:1px solid var(--teal-dim);border-radius:4px;padding:4px 8px;color:var(--text);color-scheme:dark;';
+        const commit = () => {
+          const v = text.value.trim();
+          if (v) item.text = v;
+          item.time = timeEdit.value || null;
+          item.fired = [];
+          state._editingId = null;
+          saveState(); render();
+        };
+        text.onkeydown = (e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { state._editingId = null; render(); } };
+        timeEdit.onkeydown = text.onkeydown;
+        text.onblur = () => setTimeout(() => { if (state._editingId === item.id) commit(); }, 100);
+        timeEdit.onblur = text.onblur;
+      } else {
+        text = document.createElement('span');
+        text.className = 'item-text' + (item.done ? ' done' : '');
+        text.textContent = item.text;
+      }
+      row.appendChild(cb);
+      row.appendChild(text);
+      if (isEditing) {
+        row.appendChild(timeEdit);
+        setTimeout(() => text.focus(), 0);
+      }
+      if (!isEditing && item.time) {
+        const t = document.createElement('span');
+        t.className = 'item-time';
+        t.textContent = item.time;
+        row.appendChild(t);
+      }
+      const edit = document.createElement('button');
+      edit.className = 'del-btn';
+      edit.innerHTML = '&#9998;';
+      edit.setAttribute('aria-label', 'Edit item');
+      edit.onclick = () => { state._editingId = item.id; render(); };
+      row.appendChild(edit);
+      const del = document.createElement('button');
+      del.className = 'del-btn';
+      del.innerHTML = '&#10005;';
+      del.setAttribute('aria-label', 'Delete item');
+      del.onclick = () => { state[sec.key] = state[sec.key].filter(i => i.id !== item.id); saveState(); render(); };
+      row.appendChild(del);
+      list.appendChild(row);
+    });
+
+    section.appendChild(list);
+
+    const addRow = document.createElement('div');
+    addRow.className = 'add-row';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = sec.placeholder;
+    const timeInput = document.createElement('input');
+    timeInput.type = 'time';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-btn';
+    addBtn.innerHTML = '&#43;';
+    addBtn.setAttribute('aria-label', 'Add item');
+
+    const addItem = () => {
+      const val = input.value.trim();
+      if (!val) return;
+      state[sec.key].push({ id: uid(), text: val, done: false, time: timeInput.value || null, fired: [] });
+      input.value = ''; timeInput.value = '';
+      saveState();
+      render();
+    };
+    addBtn.onclick = addItem;
+    input.onkeydown = (e) => { if (e.key === 'Enter') addItem(); };
+
+    addRow.appendChild(input);
+    addRow.appendChild(timeInput);
+    addRow.appendChild(addBtn);
+    section.appendChild(addRow);
+
+    container.appendChild(section);
+  });
+}
+
+document.getElementById('reset-day').addEventListener('click', () => {
+  SECTIONS.forEach(sec => {
+    state[sec.key] = state[sec.key].filter(i => !i.done);
+  });
+  saveState();
+  render();
+});
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  const dataStr = JSON.stringify(state, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const now = new Date();
+  const stamp = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  a.href = url;
+  a.download = 'ops-tracker-' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('import-btn').addEventListener('click', () => {
+  document.getElementById('import-file').click();
+});
+
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const imported = JSON.parse(evt.target.result);
+      if (imported && typeof imported === 'object') {
+        state = {
+          tasks: Array.isArray(imported.tasks) ? imported.tasks : [],
+          learn: Array.isArray(imported.learn) ? imported.learn : [],
+          read: Array.isArray(imported.read) ? imported.read : []
+        };
+        saveState();
+        render();
+      } else {
+        alert('File format sahi nahi hai.');
+      }
+    } catch (err) {
+      alert('File read nahi ho payi: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+loadState();
+render();
+updateClock();
+setInterval(updateClock, 1000);
+
+function updateNotifStatus() {
+  const el = document.getElementById('notif-status');
+  if (!window.Notification) { el.textContent = 'not supported'; return; }
+  el.textContent = Notification.permission === 'granted' ? 'ON ✓' : Notification.permission === 'denied' ? 'BLOCKED ✕' : 'off';
+}
+document.getElementById('notif-btn').addEventListener('click', () => {
+  if (!window.Notification) { alert('Yeh browser Notifications support nahi karta.'); return; }
+  if (Notification.permission === 'denied') {
+    alert('Notifications block hain. Edge mein address bar ke left side lock/info icon pe click karo, "Permissions for this site" mein Notifications ko Allow karo, phir page reload karo.');
+    return;
+  }
+  Notification.requestPermission().then(updateNotifStatus);
+});
+updateNotifStatus();
+
+function notify(title, body) {
+  if (window.Notification && Notification.permission === 'granted') new Notification(title, { body });
+  else alert(title + '\n' + body);
+}
+
+function generateSummary(dateStr, doNotify) {
+  let lines = [];
+  const daySummary = { date: dateStr, sections: {} };
+  SECTIONS.forEach(sec => {
+    const items = state[sec.key];
+    const done = items.filter(i => i.done);
+    const pending = items.filter(i => !i.done);
+    lines.push(sec.label + ': ' + done.length + '/' + items.length + ' complete');
+    if (done.length) lines.push('  ✓ ' + done.map(i => i.text).join(', '));
+    if (pending.length) lines.push('  ✗ ' + pending.map(i => i.text).join(', '));
+    daySummary.sections[sec.key] = {
+      done: done.map(i => i.text),
+      pending: pending.map(i => i.text),
+      total: items.length, doneCount: done.length
+    };
+  });
+  if (doNotify) notify('📊 Din ki Summary', lines.join('\n'));
+  if (!state.history) state.history = [];
+  state.history.unshift(daySummary);
+  state.history = state.history.slice(0, 60);
+  saveState();
+  render();
+}
+
+let lastSummaryDate = localStorage.getItem('ops-last-summary') || '';
+setInterval(() => {
+  const now = new Date();
+  const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  const today = now.toISOString().slice(0,10);
+
+  const MARKS = [10, 5, 2, 0];
+  SECTIONS.forEach(sec => {
+    state[sec.key].forEach(item => {
+      if (!item.time || item.done) return;
+      const [hh, mm] = item.time.split(':').map(Number);
+      const target = new Date(now); target.setHours(hh, mm, 0, 0);
+      const diffMin = Math.round((target - now) / 60000);
+      if (!item.fired) item.fired = [];
+      MARKS.forEach(mark => {
+        if (diffMin === mark && !item.fired.includes(mark)) {
+          const msg = mark === 0
+            ? '"' + item.text + '" - time ho gaya, yeh kaam abhi tak nahi hua hai, karo!'
+            : '"' + item.text + '" - ' + mark + ' minute baki hain, yeh kaam abhi tak nahi hua hai, karo!';
+          notify('⏰ Reminder', msg);
+          item.fired.push(mark);
+        }
+      });
+    });
+  });
+  saveState();
+
+  if (hm === '23:59' && lastSummaryDate !== today) {
+    generateSummary(today, true);
+    lastSummaryDate = today;
+    localStorage.setItem('ops-last-summary', today);
+  }
+}, 20000);
+
+(function particleNetwork() {
+  const canvas = document.getElementById('particle-canvas');
+  if (!canvas) { console.error('particle-canvas not found'); return; }
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let w, h;
+
+  function resize() {
+    w = canvas.width = window.innerWidth || document.documentElement.clientWidth;
+    h = canvas.height = window.innerHeight || document.documentElement.clientHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  let particleCount = Math.min(80, Math.max(30, Math.floor((w * h) / 16000)));
+  for (let i = 0; i < particleCount; i++) {
+    particles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      r: Math.random() * 2 + 1.2
+    });
+  }
+
+  const LINK_DIST = 150;
+
+  function tick() {
+    ctx.clearRect(0, 0, w, h);
+
+    for (let p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0 || p.x > w) p.vx *= -1;
+      if (p.y < 0 || p.y > h) p.vy *= -1;
+    }
+
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const a = particles[i], b = particles[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < LINK_DIST) {
+          const alpha = (1 - dist / LINK_DIST) * 0.35;
+          ctx.strokeStyle = 'rgba(45,200,150,' + alpha + ')';
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    for (let p of particles) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(45,200,150,0.8)';
+      ctx.fill();
+    }
+
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+</script>
+
+</body>
+</html>
