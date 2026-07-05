@@ -2,6 +2,8 @@
 
 A modern and user-friendly Daily Task Tracker built to help users organize, manage, and track their daily activities efficiently. This application allows users to create, update, complete, and delete tasks while keeping productivity organized through a clean and responsive interface.
 
+Live Link :  https://kidnapshadow-sidharth.github.io/Daily_Task_tracker/
+
 ✨ Features
 ✅ Add, edit, and delete tasks
 📅 Organize daily activities
